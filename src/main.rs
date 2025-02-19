@@ -5,7 +5,6 @@ use cnx::widgets::ActiveWindowTitle;
 use cnx::{widgets, Cnx, Position};
 use cnx_contrib::widgets::{battery, cpu, volume};
 use status_bar::memory;
-use sysinfo::{System, SystemExt};
 
 const DEFAULT_FONT: &str = "monospace";
 
@@ -83,7 +82,7 @@ fn battery_widget() -> battery::Battery {
     battery::Battery::new(
         battery_attrs,
         Color::from_rgb(191, 2, 2),
-        None,
+        Some("/sys/class/power_supply/BAT1/".to_string()),
         Some(render),
     )
 }
@@ -120,37 +119,34 @@ fn memory_usage_widget() -> memory::MemoryUsage {
         padding: Padding::new(5.0, 5.0, 0.0, 0.0),
     };
 
-    let render = Box::new(|memory_handle: &System| {
-        let total_memory = Byte::from_bytes(memory_handle.total_memory().into());
-        let used_memory = Byte::from_bytes(memory_handle.free_memory().into());
-        let total_swap_memory = Byte::from_bytes(memory_handle.total_swap().into());
-        let used_swap_memory = Byte::from_bytes(memory_handle.free_swap().into());
+    let render = Box::new(
+        |(used_memory, total_memory): (Byte, Byte), (used_swap, total_swap): (Byte, Byte)| {
+            let mut mem_colour = Color::white().to_hex();
 
-        let mut mem_colour = Color::white().to_hex();
+            if used_memory.get_bytes() >= total_memory.get_bytes() / 2 {
+                mem_colour = Color::yellow().to_hex();
+            }
+            if used_memory.get_bytes() >= total_memory.get_bytes() / 5 * 4 {
+                mem_colour = Color::red().to_hex();
+            }
 
-        if used_memory.get_bytes() >= total_memory.get_bytes() / 2 {
-            mem_colour = Color::yellow().to_hex();
-        }
-        if used_memory.get_bytes() >= total_memory.get_bytes() / 5 * 4 {
-            mem_colour = Color::red().to_hex();
-        }
+            let mut swap_colour = Color::white().to_hex();
 
-        let mut swap_colour = Color::white().to_hex();
+            if used_swap.get_bytes() >= total_swap.get_bytes() / 2 {
+                swap_colour = Color::yellow().to_hex();
+            }
+            if used_swap.get_bytes() >= total_swap.get_bytes() / 5 * 4 {
+                swap_colour = Color::red().to_hex();
+            }
 
-        if used_swap_memory.get_bytes() >= total_swap_memory.get_bytes() / 2 {
-            swap_colour = Color::yellow().to_hex();
-        }
-        if used_swap_memory.get_bytes() >= total_swap_memory.get_bytes() / 5 * 4 {
-            swap_colour = Color::red().to_hex();
-        }
+            let used_mem = used_memory.get_adjusted_unit(ByteUnit::GB).get_value();
+            let total_mem = total_memory.get_adjusted_unit(ByteUnit::GB).format(1);
+            let used_swap = used_swap.get_adjusted_unit(ByteUnit::GB).get_value();
+            let total_swap = total_swap.get_adjusted_unit(ByteUnit::GB).format(1);
 
-        let used_mem = used_memory.get_adjusted_unit(ByteUnit::GB).get_value();
-        let total_mem = total_memory.get_adjusted_unit(ByteUnit::GB).format(1);
-        let used_swap = used_swap_memory.get_adjusted_unit(ByteUnit::GB).get_value();
-        let total_swap = total_swap_memory.get_adjusted_unit(ByteUnit::GB).format(1);
-
-        format!("<span foreground=\"#808080\">[</span>🧠 <span foreground=\"{mem_colour}\">{used_mem:.1}</span>/{total_mem}<span foreground=\"#808080\">]</span> <span foreground=\"#808080\">[</span>💾 <span foreground=\"{swap_colour}\">{used_swap:.1}</span>/{total_swap}<span foreground=\"#808080\">]</span>")
-    });
+            format!("<span foreground=\"#808080\">[</span>🧠 <span foreground=\"{mem_colour}\">{used_mem:.1}</span>/{total_mem}<span foreground=\"#808080\">]</span> <span foreground=\"#808080\">[</span>💾 <span foreground=\"{swap_colour}\">{used_swap:.1}</span>/{total_swap}<span foreground=\"#808080\">]</span>")
+        },
+    );
 
     memory::MemoryUsage::new(memory_attrs, Some(render))
 }

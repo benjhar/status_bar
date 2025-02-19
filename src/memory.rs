@@ -9,7 +9,7 @@ use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
 
 // Abstracted type to represent the render closure
-type MemoryRender = Box<dyn Fn(&System) -> String>;
+type MemoryRender = Box<dyn Fn((Byte, Byte), (Byte, Byte)) -> String>;
 
 /// cnx widget that shows current system memory usage
 pub struct MemoryUsage {
@@ -37,26 +37,27 @@ impl MemoryUsage {
             attrs,
             render,
             memory_handle,
-            update_interval: Duration::new(10, 0),
+            update_interval: Duration::new(1, 0),
         }
     }
 
-    fn tick(&self) -> Vec<Text> {
-        let text: String = if self.render.is_none() {
-            let used_bytes = Byte::from_bytes(self.memory_handle.free_memory().into());
-            let appropriate_used_bytes_unit = used_bytes.get_appropriate_unit(false);
-            let total_bytes = Byte::from_bytes(self.memory_handle.total_memory().into());
-            let appropriate_total_bytes_unit = total_bytes.get_appropriate_unit(false);
+    fn tick(&mut self) -> Vec<Text> {
+        self.memory_handle.refresh_memory();
+        let used_bytes = Byte::from_bytes(self.memory_handle.free_memory().into());
+        let total_bytes = Byte::from_bytes(self.memory_handle.total_memory().into());
+        let used_swap = Byte::from_bytes(self.memory_handle.used_swap().into());
+        let total_swap = Byte::from_bytes(self.memory_handle.total_swap().into());
 
-            format!(
-                "({used}/{total})",
-                used = appropriate_used_bytes_unit.format(1),
-                total = appropriate_total_bytes_unit.format(1)
-            )
+        let text = if let Some(render_f) = &self.render {
+            render_f.as_ref()((used_bytes, total_bytes), (used_swap, total_swap))
         } else {
-            self.render
-                .as_ref()
-                .map_or(String::new(), |x| (x)(&self.memory_handle))
+            format!(
+                "({used_mem}/{total_mem}) ({used_swap}/{total_swap})",
+                used_mem = used_bytes.get_appropriate_unit(false),
+                total_mem = total_bytes.get_appropriate_unit(false),
+                used_swap = used_swap.get_appropriate_unit(false),
+                total_swap = total_swap.get_appropriate_unit(false),
+            )
         };
 
         vec![Text {
@@ -69,7 +70,7 @@ impl MemoryUsage {
 }
 
 impl Widget for MemoryUsage {
-    fn into_stream(self: Box<Self>) -> Result<WidgetStream> {
+    fn into_stream(mut self: Box<Self>) -> Result<WidgetStream> {
         let interval = time::interval(self.update_interval);
         let stream = IntervalStream::new(interval).map(move |_| Ok(self.tick()));
 
