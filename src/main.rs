@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use byte_unit::{Byte, ByteUnit};
+use byte_unit::{Byte, Unit};
 use cnx::text::{Attributes, Color, Font, Padding, PagerAttributes};
 use cnx::widgets::ActiveWindowTitle;
 use cnx::{widgets, Cnx, Position};
@@ -124,28 +124,28 @@ fn memory_usage_widget() -> memory::MemoryUsage {
         |(used_memory, total_memory): (Byte, Byte), (used_swap, total_swap): (Byte, Byte)| {
             let mut mem_colour = Color::white().to_hex();
 
-            if used_memory.get_bytes() >= total_memory.get_bytes() / 2 {
+            if used_memory.as_u64() >= total_memory.as_u64() / 2 {
                 mem_colour = Color::yellow().to_hex();
             }
-            if used_memory.get_bytes() >= total_memory.get_bytes() / 5 * 4 {
+            if used_memory.as_u64() >= total_memory.as_u64() / 5 * 4 {
                 mem_colour = Color::red().to_hex();
             }
 
             let mut swap_colour = Color::white().to_hex();
 
-            if used_swap.get_bytes() >= total_swap.get_bytes() / 2 {
+            if used_swap.as_u64() >= total_swap.as_u64() / 2 {
                 swap_colour = Color::yellow().to_hex();
             }
-            if used_swap.get_bytes() >= total_swap.get_bytes() / 5 * 4 {
+            if used_swap.as_u64() >= total_swap.as_u64() / 5 * 4 {
                 swap_colour = Color::red().to_hex();
             }
 
-            let used_mem = used_memory.get_adjusted_unit(ByteUnit::GB).get_value();
-            let total_mem = total_memory.get_adjusted_unit(ByteUnit::GB).format(1);
-            let used_swap = used_swap.get_adjusted_unit(ByteUnit::GB).get_value();
-            let total_swap = total_swap.get_adjusted_unit(ByteUnit::GB).format(1);
+            let used_mem = used_memory.get_adjusted_unit(Unit::GB).get_value();
+            let total_mem = total_memory.get_adjusted_unit(Unit::GB);
+            let used_swap = used_swap.get_adjusted_unit(Unit::GB).get_value();
+            let total_swap = total_swap.get_adjusted_unit(Unit::GB);
 
-            format!("<span foreground=\"#808080\">[</span>🧠 <span foreground=\"{mem_colour}\">{used_mem:.1}</span>/{total_mem}<span foreground=\"#808080\">]</span> <span foreground=\"#808080\">[</span>💾 <span foreground=\"{swap_colour}\">{used_swap:.1}</span>/{total_swap}<span foreground=\"#808080\">]</span>")
+            format!("<span foreground=\"#808080\">[</span>🧠 <span foreground=\"{mem_colour}\">{used_mem:.1}</span>/{total_mem:.1}<span foreground=\"#808080\">]</span> <span foreground=\"#808080\">[</span>💾 <span foreground=\"{swap_colour}\">{used_swap:.1}</span>/{total_swap:.1}<span foreground=\"#808080\">]</span>")
         },
     );
 
