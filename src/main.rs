@@ -1,10 +1,13 @@
+use std::time::Duration;
+
 use anyhow::Result;
 use byte_unit::{Byte, ByteUnit};
 use cnx::text::{Attributes, Color, Font, Padding, PagerAttributes};
 use cnx::widgets::ActiveWindowTitle;
 use cnx::{widgets, Cnx, Position};
-use cnx_contrib::widgets::{battery, cpu, volume};
-use status_bar::memory;
+use cnx_contrib::widgets::{cpu, volume};
+use status_bar::battery::BatteryInfo;
+use status_bar::{battery, memory};
 
 const DEFAULT_FONT: &str = "monospace";
 
@@ -58,21 +61,19 @@ fn battery_widget() -> battery::Battery {
         padding: Padding::new(5.0, 5.0, 0.0, 0.0),
     };
 
-    let render = Box::new(|battery_info: battery::BatteryInfo| {
+    let render = Box::new(|battery_info: BatteryInfo| {
         let charge = battery_info.capacity;
-        let mut colour = Color::white().to_hex();
-        if charge > 80 {
-            colour = Color::green().to_hex();
+        let colour = match charge {
+            50.. => Color::green(),
+            20..50 => Color::yellow(),
+            _ => Color::red(),
         }
-        let mut emoji = match battery_info.status {
-            battery::Status::Charging => "🔌",
+        .to_hex();
+
+        let emoji = match battery_info.status {
+            battery::ChargeStatus::Charging => "🔌",
             _ => "🔋",
         };
-
-        if charge < 20 {
-            colour = Color::red().to_hex();
-            emoji = "🪫";
-        }
 
         format!(
             "<span foreground=\"#808080\">[</span>{emoji}<span foreground=\"{colour}\">{charge}%</span><span foreground=\"#808080\">]</span>"
@@ -81,9 +82,9 @@ fn battery_widget() -> battery::Battery {
 
     battery::Battery::new(
         battery_attrs,
-        Color::from_rgb(191, 2, 2),
-        Some("/sys/class/power_supply/BAT1/".to_string()),
         Some(render),
+        Duration::from_secs(30),
+        "/sys/class/power_supply/BAT1/".to_string(),
     )
 }
 
